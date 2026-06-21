@@ -8,13 +8,17 @@
 // CONSTANTS & CO2 FACTORS
 // =============================================
 
+/**
+ * CO2 Emission Factors based on IPCC & Our World in Data.
+ * @type {Object<string, number>}
+ */
 const CO2_FACTORS = {
   // Transport
   carKmPerWeek: 0.00021,        // tonnes CO2 per km per week × 52
   flightShortHaul: 0.255,       // tonnes CO2 per short-haul flight (economy)
   transitDaysPerWeek: -0.03,    // credit: tonnes CO2 saved vs car
   cycleDaysPerWeek: -0.02,      // credit
-
+  
   // Home
   electricityKwh: 0.000233,     // tonnes CO2 per kWh per month × 12 (global avg grid)
   gasM3: 0.00202,               // tonnes CO2 per m³ per month × 12
@@ -35,6 +39,9 @@ const OFFSET_COST_PER_TONNE = 15;  // USD
 // STATE
 // =============================================
 
+/**
+ * Global application state.
+ */
 const state = {
   transport: { car: 0, flights: 0, transit: 0, cycle: 0 },
   home: { electricity: 0, gas: 0, solar: 0 },
@@ -45,12 +52,17 @@ const state = {
   unlockedBadges: new Set(),
   earthFrame: 0,
   particleSystem: [],
+  earthVisible: true,
+  particlesVisible: true
 };
 
 // =============================================
 // BADGE DEFINITIONS
 // =============================================
 
+/**
+ * List of Eco Achievement Badges with their unlock conditions.
+ */
 const BADGES = [
   { id: 'first-step', icon: '🌱', name: 'First Step', desc: 'Completed first tracking', condition: s => s.total > 0 },
   { id: 'below-global', icon: '🌍', name: 'Below Average', desc: 'Under global average (4.7t)', condition: s => s.total > 0 && s.total < GLOBAL_AVG },
@@ -66,6 +78,9 @@ const BADGES = [
 // INSIGHT DEFINITIONS
 // =============================================
 
+/**
+ * Actionable insights database.
+ */
 const INSIGHTS_DB = [
   { id: 'ev', icon: '⚡', title: 'Switch to Electric Vehicle', desc: 'EVs emit up to 70% less CO₂ than petrol cars over their lifetime.', saving: '−1.5t/yr', trigger: s => s.transport.car > 200 },
   { id: 'public-transit', icon: '🚌', title: 'Use Public Transit', desc: 'Taking the bus instead of driving saves ~2.4kg CO₂ per 10km trip.', saving: '−0.8t/yr', trigger: s => s.transport.car > 100 && s.transport.transit < 3 },
@@ -82,33 +97,168 @@ const INSIGHTS_DB = [
 ];
 
 // =============================================
+// DOM ELEMENT CACHE
+// =============================================
+
+/**
+ * Cache of DOM elements.
+ * @type {Object<string, HTMLElement|CanvasRenderingContext2D|null>}
+ */
+const DOM = {};
+
+/**
+ * Initializes the DOM cache.
+ */
+function cacheDOMElements() {
+  try {
+    DOM.toast = document.getElementById('toast');
+    DOM.toastIcon = document.getElementById('toast-icon');
+    DOM.toastMsg = document.getElementById('toast-msg');
+    DOM.earthCanvas = document.getElementById('earthCanvas');
+    if (DOM.earthCanvas) DOM.earthCtx = DOM.earthCanvas.getContext('2d');
+    DOM.particleCanvas = document.getElementById('particleCanvas');
+    if (DOM.particleCanvas) DOM.particleCtx = DOM.particleCanvas.getContext('2d');
+    DOM.gaugeCanvas = document.getElementById('gaugeCanvas');
+    if (DOM.gaugeCanvas) DOM.gaugeCtx = DOM.gaugeCanvas.getContext('2d');
+    DOM.gaugeValue = document.getElementById('gauge-value');
+    DOM.gaugeLabel = document.getElementById('gauge-label');
+    DOM.barUser = document.getElementById('bar-user');
+    DOM.cmpUser = document.getElementById('cmp-user');
+    DOM.barTransport = document.getElementById('bar-transport');
+    DOM.valTransportCo2 = document.getElementById('val-transport-co2');
+    DOM.barHome = document.getElementById('bar-home');
+    DOM.valHomeCo2 = document.getElementById('val-home-co2');
+    DOM.barFood = document.getElementById('bar-food');
+    DOM.valFoodCo2 = document.getElementById('val-food-co2');
+    DOM.barGoods = document.getElementById('bar-goods');
+    DOM.valGoodsCo2 = document.getElementById('val-goods-co2');
+    DOM.planetCo2Val = document.getElementById('planet-co2-val');
+    DOM.planetTreesVal = document.getElementById('planet-trees-val');
+    DOM.healthStatusBadge = document.getElementById('health-status-badge');
+    DOM.healthBadgeIcon = document.getElementById('health-badge-icon');
+    DOM.healthBadgeText = document.getElementById('health-badge-text');
+    DOM.insightList = document.getElementById('insight-list');
+    DOM.treesCount = document.getElementById('trees-count');
+    DOM.offsetMonths = document.getElementById('offset-months');
+    DOM.offsetCost = document.getElementById('offset-cost');
+    DOM.offsetFlightsAvoided = document.getElementById('offset-flights-avoided');
+    DOM.offsetMeatDays = document.getElementById('offset-meat-days');
+    DOM.treeRow = document.getElementById('tree-row');
+    DOM.badgesGrid = document.getElementById('badges-grid');
+    DOM.streakCount = document.getElementById('streak-count');
+    DOM.streakDaysNext = document.getElementById('streak-days-next');
+    DOM.modalOverlay = document.getElementById('modal-overlay');
+    DOM.modalEarthEmoji = document.getElementById('modal-earth-emoji');
+    DOM.modal2025Temp = document.getElementById('modal-2025-temp');
+    DOM.modal2050Temp = document.getElementById('modal-2050-temp');
+    DOM.modal2075Temp = document.getElementById('modal-2075-temp');
+    DOM.modal2050Desc = document.getElementById('modal-2050-desc');
+    DOM.modal2075Desc = document.getElementById('modal-2075-desc');
+    DOM.modalMessage = document.getElementById('modal-message');
+    DOM.modalClose = document.getElementById('modal-close');
+    DOM.modalCloseBtn = document.getElementById('modal-close-btn');
+    DOM.modalActionBtn = document.getElementById('modal-action-btn');
+    DOM.navInsights = document.getElementById('nav-insights');
+    DOM.navOffset = document.getElementById('nav-offset');
+    DOM.navDashboard = document.getElementById('nav-dashboard');
+    DOM.heroCalculateBtn = document.getElementById('hero-calculate-btn');
+    DOM.heroLearnBtn = document.getElementById('hero-learn-btn');
+  } catch (err) {
+    console.error('Failed to initialize DOM cache:', err);
+  }
+}
+
+// =============================================
 // UTILITY FUNCTIONS
 // =============================================
 
+/**
+ * Clamps a number between a minimum and maximum value.
+ * @param {number} val - The input value.
+ * @param {number} min - The lower bound.
+ * @param {number} max - The upper bound.
+ * @returns {number} The clamped value.
+ */
 function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 
+/**
+ * Performs linear interpolation between two values.
+ * @param {number} a - Starting value.
+ * @param {number} b - Ending value.
+ * @param {number} t - Interpolation factor (0 to 1).
+ * @returns {number} The interpolated value.
+ */
 function lerp(a, b, t) {
   return a + (b - a) * clamp(t, 0, 1);
 }
 
+/**
+ * Formats carbon value to one decimal place with 't' suffix.
+ * @param {number} val - Carbon in tonnes.
+ * @returns {string} Formatted string.
+ */
 function formatTonnes(val) {
   return val.toFixed(1) + 't';
 }
 
+/**
+ * Displays a toast notification message.
+ * @param {string} icon - Emoji representing the badge or action.
+ * @param {string} message - Text message.
+ */
 function showToast(icon, message) {
-  const toast = document.getElementById('toast');
-  document.getElementById('toast-icon').textContent = icon;
-  document.getElementById('toast-msg').textContent = message;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3500);
+  if (!DOM.toast || !DOM.toastIcon || !DOM.toastMsg) return;
+  DOM.toastIcon.textContent = icon;
+  DOM.toastMsg.textContent = message;
+  DOM.toast.classList.add('show');
+  setTimeout(() => DOM.toast.classList.remove('show'), 3500);
+}
+
+/**
+ * Creates a debounced function that delays invoking func until after wait milliseconds.
+ * @param {Function} func - The function to debounce.
+ * @param {number} wait - The delay in milliseconds.
+ * @returns {Function} The debounced function.
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+/**
+ * Safely sets message markup inside a DOM element.
+ * Only processes safe bold styling <strong> tags.
+ * @param {HTMLElement} element - Target DOM element.
+ * @param {string} text - Message containing markup.
+ */
+function setSafeMessage(element, text) {
+  if (!element) return;
+  element.replaceChildren();
+  const parts = text.split(/(<strong>.*?<\/strong>)/g);
+  parts.forEach(part => {
+    if (part.startsWith('<strong>') && part.endsWith('</strong>')) {
+      const strong = document.createElement('strong');
+      strong.textContent = part.slice(8, -9);
+      element.appendChild(strong);
+    } else {
+      element.appendChild(document.createTextNode(part));
+    }
+  });
 }
 
 // =============================================
 // CALCULATION ENGINE
 // =============================================
 
+/**
+ * Recalculates user carbon scores across all categories.
+ * @returns {Object} Recalculated state scores.
+ */
 function calculateScores() {
   const t = state.transport;
   const h = state.home;
@@ -119,19 +269,20 @@ function calculateScores() {
   let transport = 0;
   transport += t.car * CO2_FACTORS.carKmPerWeek * 52;
   transport += t.flights * CO2_FACTORS.flightShortHaul;
-  transport = Math.max(0, transport - t.transit * 0.05 - t.cycle * 0.03);
+  // Apply cycling and transit credit using defined constants
+  transport = Math.max(0, transport + t.transit * CO2_FACTORS.transitDaysPerWeek + t.cycle * CO2_FACTORS.cycleDaysPerWeek);
 
   // Home Energy (tonnes CO2/year)
-  const solarFactor = 1 - parseFloat(h.solar || 0);
+  const solarFactor = 1 - clamp(parseFloat(h.solar ?? 0), 0, 1);
   let home = 0;
   home += h.electricity * CO2_FACTORS.electricityKwh * 12 * solarFactor;
   home += h.gas * CO2_FACTORS.gasM3 * 12;
 
   // Food (tonnes CO2/year)
   let food = 0;
-  food += parseFloat(f.diet || 2.5);
-  food *= (1 - (f.local / 100) * 0.1);  // local food reduces 10%
-  food += parseFloat(f.waste || 0.1);
+  food += clamp(parseFloat(f.diet ?? 2.5), 0, 10);
+  food *= (1 - (clamp(f.local, 0, 100) / 100) * 0.1);  // local food reduces 10%
+  food += clamp(parseFloat(f.waste ?? 0.1), 0, 5);
 
   // Goods (tonnes CO2/year)
   let goods = 0;
@@ -156,11 +307,15 @@ function calculateScores() {
 // EARTH CANVAS — Planet Health Mirror
 // =============================================
 
-const earthCanvas = document.getElementById('earthCanvas');
-const earthCtx = earthCanvas.getContext('2d');
 let earthAnimFrame = null;
 let earthRotation = 0;
+let isEarthAnimating = false;
 
+/**
+ * Determines planet health status state.
+ * @param {number} totalCO2 - User's total annual carbon footprint in tonnes.
+ * @returns {string} Status string.
+ */
 function getEarthHealthState(totalCO2) {
   if (totalCO2 < 2) return 'excellent';
   if (totalCO2 < 4) return 'good';
@@ -169,9 +324,15 @@ function getEarthHealthState(totalCO2) {
   return 'critical';
 }
 
+/**
+ * Draws the animated Earth icon dynamically reflecting health.
+ * @param {number} totalCO2 - User's total carbon emissions.
+ */
 function drawEarth(totalCO2) {
-  const canvas = earthCanvas;
-  const ctx = earthCtx;
+  const canvas = DOM.earthCanvas;
+  const ctx = DOM.earthCtx;
+  if (!canvas || !ctx) return;
+
   const size = canvas.width;
   const cx = size / 2;
   const cy = size / 2;
@@ -303,7 +464,15 @@ function drawEarth(totalCO2) {
   earthRotation += 0.3;
 }
 
+/**
+ * Earth drawing loop handler.
+ */
 function animateEarth() {
+  if (!state.earthVisible) {
+    isEarthAnimating = false;
+    return;
+  }
+  isEarthAnimating = true;
   drawEarth(state.scores.total);
   earthAnimFrame = requestAnimationFrame(animateEarth);
 }
@@ -312,21 +481,33 @@ function animateEarth() {
 // PARTICLE SYSTEM (CO2 particles)
 // =============================================
 
-const particleCanvas = document.getElementById('particleCanvas');
-const particleCtx = particleCanvas.getContext('2d');
 let particleAnimFrame = null;
+let isParticlesAnimating = false;
 
+/**
+ * Initializes the particle overlay dimensions.
+ */
 function initParticleCanvas() {
-  const rect = particleCanvas.parentElement.getBoundingClientRect();
-  particleCanvas.width = rect.width;
-  particleCanvas.height = rect.height;
+  const canvas = DOM.particleCanvas;
+  if (!canvas || !canvas.parentElement) return;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
 }
 
+/**
+ * Spawns a floating particle element.
+ * @param {number} co2Level - The current score.
+ * @returns {Object} Particle configuration.
+ */
 function createParticle(co2Level) {
+  const canvas = DOM.particleCanvas;
+  const width = canvas ? canvas.width : 300;
+  const height = canvas ? canvas.height : 250;
   const spread = co2Level / 20;
   return {
-    x: particleCanvas.width * 0.35 + (Math.random() - 0.5) * 80 * spread,
-    y: particleCanvas.height * 0.7,
+    x: width * 0.35 + (Math.random() - 0.5) * 80 * spread,
+    y: height * 0.7,
     vx: (Math.random() - 0.5) * 0.5 * spread,
     vy: -(Math.random() * 1.5 + 0.3) * (0.3 + spread),
     alpha: 0.6 + Math.random() * 0.3,
@@ -337,6 +518,9 @@ function createParticle(co2Level) {
   };
 }
 
+/**
+ * Updates particle physics.
+ */
 function updateParticles() {
   const totalCO2 = state.scores.total;
   if (totalCO2 <= 0) {
@@ -364,24 +548,39 @@ function updateParticles() {
   });
 }
 
+/**
+ * Renders particles onto the canvas.
+ */
 function drawParticles() {
-  particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+  const canvas = DOM.particleCanvas;
+  const ctx = DOM.particleCtx;
+  if (!canvas || !ctx) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   state.particleSystem.forEach(p => {
-    particleCtx.beginPath();
-    particleCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    particleCtx.fillStyle = `${p.color}${p.alpha.toFixed(2)})`;
-    particleCtx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = `${p.color}${p.alpha.toFixed(2)})`;
+    ctx.fill();
 
     // "CO₂" text on some particles
     if (p.size > 3 && p.life % 40 === 0) {
-      particleCtx.font = '8px Outfit';
-      particleCtx.fillStyle = `${p.color}${(p.alpha * 0.8).toFixed(2)})`;
-      particleCtx.fillText('CO₂', p.x + 4, p.y - 4);
+      ctx.font = '8px Outfit';
+      ctx.fillStyle = `${p.color}${(p.alpha * 0.8).toFixed(2)})`;
+      ctx.fillText('CO₂', p.x + 4, p.y - 4);
     }
   });
 }
 
+/**
+ * Particle system loop runner.
+ */
 function animateParticles() {
+  if (!state.particlesVisible) {
+    isParticlesAnimating = false;
+    return;
+  }
+  isParticlesAnimating = true;
   updateParticles();
   drawParticles();
   particleAnimFrame = requestAnimationFrame(animateParticles);
@@ -391,13 +590,17 @@ function animateParticles() {
 // GAUGE CANVAS
 // =============================================
 
-const gaugeCanvas = document.getElementById('gaugeCanvas');
-const gaugeCtx = gaugeCanvas.getContext('2d');
-
+/**
+ * Draws the dashboard semi-circular gauge chart.
+ * @param {number} value - The carbon value to plot.
+ */
 function drawGauge(value) {
-  const ctx = gaugeCtx;
-  const w = gaugeCanvas.width;
-  const h = gaugeCanvas.height;
+  const canvas = DOM.gaugeCanvas;
+  const ctx = DOM.gaugeCtx;
+  if (!canvas || !ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
   const cx = w / 2;
@@ -405,7 +608,7 @@ function drawGauge(value) {
   const r = Math.min(w, h * 1.6) / 2 - 12;
   const startAngle = Math.PI;
   const endAngle = 2 * Math.PI;
-  const valueAngle = startAngle + (value / MAX_GAUGE) * Math.PI;
+  const valueAngle = startAngle + (clamp(value, 0, MAX_GAUGE) / MAX_GAUGE) * Math.PI;
 
   // Background arc
   ctx.beginPath();
@@ -415,8 +618,8 @@ function drawGauge(value) {
   ctx.lineCap = 'round';
   ctx.stroke();
 
-  // Gradient arc (color changes with value)
-  const pct = value / MAX_GAUGE;
+  // Gradient arc
+  const pct = clamp(value / MAX_GAUGE, 0, 1);
   const r1 = Math.round(lerp(0, 239, pct));
   const g1 = Math.round(lerp(229, 68, pct));
   const b1 = Math.round(lerp(160, 68, pct));
@@ -471,33 +674,42 @@ function drawGauge(value) {
 // UI UPDATES
 // =============================================
 
+/**
+ * Updates the gauge widget display.
+ * @param {Object} scores - Current scores model.
+ */
 function updateGaugeDisplay(scores) {
   const val = scores.total;
-  const pct = clamp(val / MAX_GAUGE, 0, 1);
-
-  // Animate gauge value
   drawGauge(val);
 
-  const gaugeValEl = document.getElementById('gauge-value');
-  gaugeValEl.textContent = val.toFixed(1);
+  if (DOM.gaugeValue) {
+    DOM.gaugeValue.textContent = val.toFixed(1);
+  }
 
   // Label color/text
-  const labelEl = document.getElementById('gauge-label');
-  let labelClass, labelText;
-  if (val < 2) { labelClass = 'health-great'; labelText = '🌿 Excellent'; }
-  else if (val < 4) { labelClass = 'health-great'; labelText = '👍 Good'; }
-  else if (val < 7) { labelClass = 'health-ok'; labelText = '⚠️ Average'; }
-  else { labelClass = 'health-bad'; labelText = '🔴 High Impact'; }
+  if (DOM.gaugeLabel) {
+    let labelClass, labelText;
+    if (val < 2) { labelClass = 'health-great'; labelText = '🌿 Excellent'; }
+    else if (val < 4) { labelClass = 'health-great'; labelText = '👍 Good'; }
+    else if (val < 7) { labelClass = 'health-ok'; labelText = '⚠️ Average'; }
+    else { labelClass = 'health-bad'; labelText = '🔴 High Impact'; }
 
-  labelEl.className = `gauge-label ${labelClass}`;
-  labelEl.textContent = labelText;
+    DOM.gaugeLabel.className = `gauge-label ${labelClass}`;
+    DOM.gaugeLabel.textContent = labelText;
+  }
 
   // User comparison bar
-  const barPct = clamp((val / (GLOBAL_AVG * 2.1)) * 100, 0, 100);
-  document.getElementById('bar-user').style.width = `${barPct}%`;
-  document.getElementById('cmp-user').textContent = formatTonnes(val);
+  if (DOM.barUser && DOM.cmpUser) {
+    const barPct = clamp((val / (GLOBAL_AVG * 2.1)) * 100, 0, 100);
+    DOM.barUser.style.width = `${barPct}%`;
+    DOM.cmpUser.textContent = formatTonnes(val);
+  }
 }
 
+/**
+ * Updates the category carbon breakdown bar chart.
+ * @param {Object} scores - The categories score model.
+ */
 function updateBreakdownChart(scores) {
   const max = Math.max(scores.total, GLOBAL_AVG, 0.1);
   const ids = ['transport', 'home', 'food', 'goods'];
@@ -505,52 +717,70 @@ function updateBreakdownChart(scores) {
   ids.forEach(cat => {
     const val = scores[cat];
     const pct = clamp((val / max) * 85, 0, 100);
-    const barEl = document.getElementById(`bar-${cat}`);
-    const valEl = document.getElementById(`val-${cat}-co2`);
+    const barEl = DOM[`bar${cat.charAt(0).toUpperCase() + cat.slice(1)}`];
+    const valEl = DOM[`val${cat.charAt(0).toUpperCase() + cat.slice(1)}Co2`];
     if (barEl) barEl.style.width = `${pct}%`;
     if (valEl) valEl.textContent = formatTonnes(val);
   });
 }
 
+/**
+ * Re-evaluates planet health scores and shifts Earth glow effects.
+ * @param {Object} scores - The carbon scores.
+ */
 function updatePlanetMirror(scores) {
   const total = scores.total;
 
-  // Update CO2 value
-  document.getElementById('planet-co2-val').textContent = total.toFixed(1) + 't';
+  if (DOM.planetCo2Val) {
+    DOM.planetCo2Val.textContent = total.toFixed(1) + 't';
+  }
 
-  // Trees
   const trees = total > 0 ? Math.ceil(total / TREE_ABSORB_PER_YEAR) : 0;
-  document.getElementById('planet-trees-val').textContent = trees.toLocaleString();
+  if (DOM.planetTreesVal) {
+    DOM.planetTreesVal.textContent = trees.toLocaleString();
+  }
 
   // Health badge
-  const badge = document.getElementById('health-status-badge');
-  const icon = document.getElementById('health-badge-icon');
-  const text = document.getElementById('health-badge-text');
+  const badge = DOM.healthStatusBadge;
+  const icon = DOM.healthBadgeIcon;
+  const text = DOM.healthBadgeText;
 
-  badge.className = 'health-status-badge';
-  if (total === 0) { badge.classList.add('health-great'); icon.textContent = '🌿'; text.textContent = 'Start Tracking'; }
-  else if (total < 2) { badge.classList.add('health-great'); icon.textContent = '🌟'; text.textContent = 'Carbon Hero'; }
-  else if (total < 4) { badge.classList.add('health-great'); icon.textContent = '✅'; text.textContent = 'Doing Well'; }
-  else if (total < 7) { badge.classList.add('health-ok'); icon.textContent = '⚠️'; text.textContent = 'Average'; }
-  else if (total < 10) { badge.classList.add('health-bad'); icon.textContent = '🔴'; text.textContent = 'High Impact'; }
-  else { badge.classList.add('health-bad'); icon.textContent = '🚨'; text.textContent = 'Critical'; }
+  if (badge && icon && text) {
+    badge.className = 'health-status-badge';
+    if (total === 0) { badge.classList.add('health-great'); icon.textContent = '🌿'; text.textContent = 'Start Tracking'; }
+    else if (total < 2) { badge.classList.add('health-great'); icon.textContent = '🌟'; text.textContent = 'Carbon Hero'; }
+    else if (total < 4) { badge.classList.add('health-great'); icon.textContent = '✅'; text.textContent = 'Doing Well'; }
+    else if (total < 7) { badge.classList.add('health-ok'); icon.textContent = '⚠️'; text.textContent = 'Average'; }
+    else if (total < 10) { badge.classList.add('health-bad'); icon.textContent = '🔴'; text.textContent = 'High Impact'; }
+    else { badge.classList.add('health-bad'); icon.textContent = '🚨'; text.textContent = 'Critical'; }
+  }
 
   // Earth glow shadow
-  const health = getEarthHealthState(total);
-  const glowMap = { excellent: 'rgba(0,229,160,0.6)', good: 'rgba(0,229,160,0.3)', warning: 'rgba(245,158,11,0.5)', bad: 'rgba(239,68,68,0.5)', critical: 'rgba(127,29,29,0.7)' };
-  earthCanvas.style.filter = `drop-shadow(0 0 ${total > 0 ? 40 : 20}px ${glowMap[health]})`;
+  if (DOM.earthCanvas) {
+    const health = getEarthHealthState(total);
+    const glowMap = { excellent: 'rgba(0,229,160,0.6)', good: 'rgba(0,229,160,0.3)', warning: 'rgba(245,158,11,0.5)', bad: 'rgba(239,68,68,0.5)', critical: 'rgba(127,29,29,0.7)' };
+    DOM.earthCanvas.style.filter = `drop-shadow(0 0 ${total > 0 ? 40 : 20}px ${glowMap[health]})`;
+  }
 }
 
+/**
+ * Evaluates insights logic and lists top eco insights.
+ * Uses programmatic DOM element creation to maintain strict security profiles.
+ * @param {Object} scores - The carbon scores.
+ */
 function updateInsights(scores) {
-  const list = document.getElementById('insight-list');
+  const list = DOM.insightList;
+  if (!list) return;
+
   const applicable = INSIGHTS_DB.filter(ins => ins.trigger(state));
   const shown = applicable.slice(0, 4);
 
-  list.innerHTML = '';
+  list.replaceChildren(); // Safe DOM clear API
   if (shown.length === 0) {
-    list.innerHTML = `<div style="text-align:center; color: var(--text-muted); padding: 24px; font-size: 0.85rem;">
-      🌱 Start tracking your emissions to get personalized insights!
-    </div>`;
+    const emptyMsg = document.createElement('div');
+    emptyMsg.style.cssText = 'text-align:center; color: var(--text-muted); padding: 24px; font-size: 0.85rem;';
+    emptyMsg.textContent = '🌱 Start tracking your emissions to get personalized insights!';
+    list.appendChild(emptyMsg);
     return;
   }
 
@@ -559,48 +789,77 @@ function updateInsights(scores) {
     el.className = 'insight-item';
     el.style.animationDelay = `${i * 0.08}s`;
     el.setAttribute('role', 'listitem');
-    el.innerHTML = `
-      <div class="insight-icon" aria-hidden="true">${ins.icon}</div>
-      <div class="insight-content">
-        <div class="insight-title">${ins.title}</div>
-        <div class="insight-desc">${ins.desc}</div>
-      </div>
-      <div class="insight-saving" title="Estimated annual CO₂ saving">${ins.saving}</div>
-    `;
+
+    const iconEl = document.createElement('div');
+    iconEl.className = 'insight-icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.textContent = ins.icon;
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'insight-content';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'insight-title';
+    titleEl.textContent = ins.title;
+
+    const descEl = document.createElement('div');
+    descEl.className = 'insight-desc';
+    descEl.textContent = ins.desc;
+
+    contentEl.appendChild(titleEl);
+    contentEl.appendChild(descEl);
+
+    const savingEl = document.createElement('div');
+    savingEl.className = 'insight-saving';
+    savingEl.setAttribute('title', 'Estimated annual CO₂ saving');
+    savingEl.textContent = ins.saving;
+
+    el.appendChild(iconEl);
+    el.appendChild(contentEl);
+    el.appendChild(savingEl);
+
     list.appendChild(el);
   });
 }
 
+/**
+ * Calculates tree equivalents, offset costs, and populates the offset visual.
+ * @param {Object} scores - User scores.
+ */
 function updateOffsetCalculator(scores) {
   const total = scores.total;
   const trees = total > 0 ? Math.ceil(total / TREE_ABSORB_PER_YEAR) : 0;
   const months = total > 0 ? Math.ceil((total / GLOBAL_AVG) * 12) : 0;
   const cost = Math.ceil(total * OFFSET_COST_PER_TONNE);
   const flightsToSkip = total > 0 ? Math.ceil(total / CO2_FACTORS.flightShortHaul) : 0;
-  const meatDays = total > 0 ? Math.ceil((total * 0.4) / (0.005)) : 0;
+  const meatDays = total > 0 ? Math.ceil((total * 0.4) / 0.005) : 0;
 
-  document.getElementById('trees-count').textContent = trees.toLocaleString();
-  document.getElementById('offset-months').textContent = months;
-  document.getElementById('offset-cost').textContent = `$${cost}`;
-  document.getElementById('offset-flights-avoided').textContent = flightsToSkip;
-  document.getElementById('offset-meat-days').textContent = meatDays.toLocaleString();
+  if (DOM.treesCount) DOM.treesCount.textContent = trees.toLocaleString();
+  if (DOM.offsetMonths) DOM.offsetMonths.textContent = months;
+  if (DOM.offsetCost) DOM.offsetCost.textContent = `$${cost}`;
+  if (DOM.offsetFlightsAvoided) DOM.offsetFlightsAvoided.textContent = flightsToSkip;
+  if (DOM.offsetMeatDays) DOM.offsetMeatDays.textContent = meatDays.toLocaleString();
 
   // Tree row visualization (show up to 30 trees)
-  const treeRow = document.getElementById('tree-row');
-  treeRow.innerHTML = '';
-  const displayTrees = Math.min(trees, 30);
-  for (let i = 0; i < displayTrees; i++) {
-    const span = document.createElement('span');
-    span.className = 'tree-emoji';
-    span.textContent = '🌳';
-    span.style.animationDelay = `${i * 0.04}s`;
-    treeRow.appendChild(span);
-  }
-  if (trees > 30) {
-    const more = document.createElement('span');
-    more.textContent = ` +${(trees - 30).toLocaleString()} more`;
-    more.style.cssText = 'font-size: 0.75rem; color: var(--text-muted); align-self: center;';
-    treeRow.appendChild(more);
+  const treeRow = DOM.treeRow;
+  if (treeRow) {
+    treeRow.replaceChildren(); // Safe DOM clear
+    const displayTrees = Math.min(trees, 30);
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < displayTrees; i++) {
+      const span = document.createElement('span');
+      span.className = 'tree-emoji';
+      span.textContent = '🌳';
+      span.style.animationDelay = `${i * 0.04}s`;
+      fragment.appendChild(span);
+    }
+    if (trees > 30) {
+      const more = document.createElement('span');
+      more.textContent = ` +${(trees - 30).toLocaleString()} more`;
+      more.style.cssText = 'font-size: 0.75rem; color: var(--text-muted); align-self: center;';
+      fragment.appendChild(more);
+    }
+    treeRow.appendChild(fragment);
   }
 }
 
@@ -608,8 +867,14 @@ function updateOffsetCalculator(scores) {
 // BADGES SYSTEM
 // =============================================
 
+/**
+ * Checks and updates achievements list safely.
+ * @param {Object} scores - The carbon scores.
+ */
 function updateBadges(scores) {
-  const grid = document.getElementById('badges-grid');
+  const grid = DOM.badgesGrid;
+  if (!grid) return;
+
   const prevUnlocked = new Set(state.unlockedBadges);
   state.unlockedBadges.clear();
 
@@ -627,8 +892,8 @@ function updateBadges(scores) {
     }
   });
 
-  // Render
-  grid.innerHTML = '';
+  // Render grid using safe DOM methods
+  grid.replaceChildren();
   BADGES.forEach((badge, i) => {
     const isUnlocked = state.unlockedBadges.has(badge.id);
     const el = document.createElement('div');
@@ -636,11 +901,29 @@ function updateBadges(scores) {
     el.setAttribute('role', 'listitem');
     el.setAttribute('aria-label', `${badge.name}: ${isUnlocked ? 'Unlocked' : 'Locked'}`);
     el.style.animationDelay = `${i * 0.05}s`;
-    el.innerHTML = `
-      <div class="badge-icon" aria-hidden="true">${badge.icon}</div>
-      <div class="badge-name">${badge.name}</div>
-      ${isUnlocked ? '<div class="badge-unlock-tag">✓ Unlocked</div>' : '<div class="badge-unlock-tag" style="color:var(--text-muted);">Locked</div>'}
-    `;
+
+    const iconEl = document.createElement('div');
+    iconEl.className = 'badge-icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.textContent = badge.icon;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'badge-name';
+    nameEl.textContent = badge.name;
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'badge-unlock-tag';
+    if (isUnlocked) {
+      statusEl.textContent = '✓ Unlocked';
+    } else {
+      statusEl.textContent = 'Locked';
+      statusEl.style.color = 'var(--text-muted)';
+    }
+
+    el.appendChild(iconEl);
+    el.appendChild(nameEl);
+    el.appendChild(statusEl);
+
     grid.appendChild(el);
   });
 }
@@ -649,38 +932,56 @@ function updateBadges(scores) {
 // STREAK SYSTEM
 // =============================================
 
+/**
+ * Initializes and computes visit streak counters.
+ */
 function initStreak() {
-  const today = new Date().toDateString();
-  const lastVisit = localStorage.getItem('eco_last_visit');
-  const savedStreak = parseInt(localStorage.getItem('eco_streak') || '0', 10);
+  try {
+    const today = new Date().toDateString();
+    const lastVisit = localStorage.getItem('eco_last_visit');
+    const savedStreak = parseInt(localStorage.getItem('eco_streak') || '0', 10);
 
-  if (lastVisit === today) {
-    state.streak = savedStreak;
-  } else if (lastVisit) {
-    const lastDate = new Date(lastVisit);
-    const diffDays = Math.round((new Date() - lastDate) / (1000 * 60 * 60 * 24));
-    state.streak = diffDays === 1 ? savedStreak + 1 : 1;
-    localStorage.setItem('eco_streak', state.streak);
-    localStorage.setItem('eco_last_visit', today);
-  } else {
+    if (lastVisit === today) {
+      state.streak = savedStreak;
+    } else if (lastVisit) {
+      const lastDate = new Date(lastVisit);
+      const diffDays = Math.round((new Date() - lastDate) / (1000 * 60 * 60 * 24));
+      state.streak = diffDays === 1 ? savedStreak + 1 : 1;
+      localStorage.setItem('eco_streak', state.streak);
+      localStorage.setItem('eco_last_visit', today);
+    } else {
+      state.streak = 1;
+      localStorage.setItem('eco_streak', 1);
+      localStorage.setItem('eco_last_visit', today);
+    }
+  } catch (err) {
+    console.warn('LocalStorage API unavailable, local streak metrics disabled.', err);
     state.streak = 1;
-    localStorage.setItem('eco_streak', 1);
-    localStorage.setItem('eco_last_visit', today);
   }
 
   updateStreakDisplay();
 }
 
+/**
+ * Updates streak interface counters.
+ */
 function updateStreakDisplay() {
-  document.getElementById('streak-count').textContent = state.streak;
-  const daysToNext = 7 - (state.streak % 7);
-  document.getElementById('streak-days-next').textContent = `${daysToNext} day${daysToNext !== 1 ? 's' : ''}`;
+  if (DOM.streakCount) {
+    DOM.streakCount.textContent = state.streak;
+  }
+  if (DOM.streakDaysNext) {
+    const daysToNext = 7 - (state.streak % 7);
+    DOM.streakDaysNext.textContent = `${daysToNext} day${daysToNext !== 1 ? 's' : ''}`;
+  }
 }
 
 // =============================================
 // MAIN UPDATE FUNCTION
 // =============================================
 
+/**
+ * Redraws and updates dashboard calculations.
+ */
 function updateAll() {
   const scores = calculateScores();
   updateGaugeDisplay(scores);
@@ -691,23 +992,48 @@ function updateAll() {
   updateBadges(scores);
 }
 
+/**
+ * Debounced wrapper for recalculations.
+ */
+const debouncedUpdateAll = debounce(updateAll, 100);
+
 // =============================================
 // TRACKER INPUTS — Wire Up Sliders
 // =============================================
 
-function setupSlider(id, stateKey, stateSubKey, displayId, formatFn, onChange) {
+/**
+ * Configures event binding and updates for range slider elements.
+ * @param {string} id - Range input element identifier.
+ * @param {string} stateKey - Master category state key.
+ * @param {string} stateSubKey - Category parameter.
+ * @param {string} displayId - Value label display element.
+ * @param {Function} formatFn - Display formatter.
+ */
+function setupSlider(id, stateKey, stateSubKey, displayId, formatFn) {
   const el = document.getElementById(id);
   const disp = document.getElementById(displayId);
   if (!el || !disp) return;
 
   el.addEventListener('input', () => {
     const val = parseFloat(el.value);
-    state[stateKey][stateSubKey] = val;
-    disp.textContent = formatFn(val);
-    updateAll();
+    // Sanity range check
+    if (!isNaN(val)) {
+      state[stateKey][stateSubKey] = val;
+      disp.textContent = formatFn(val);
+      el.setAttribute('aria-valuenow', val);
+      debouncedUpdateAll();
+    }
   });
 }
 
+/**
+ * Configures event binding for selector elements.
+ * @param {string} id - Select element identifier.
+ * @param {string} stateKey - Master category state key.
+ * @param {string} stateSubKey - Category parameter.
+ * @param {string} displayId - Value label display element.
+ * @param {Function} formatFn - Display formatter.
+ */
 function setupSelect(id, stateKey, stateSubKey, displayId, formatFn) {
   const el = document.getElementById(id);
   const disp = document.getElementById(displayId);
@@ -720,33 +1046,39 @@ function setupSelect(id, stateKey, stateSubKey, displayId, formatFn) {
   });
 }
 
+/**
+ * Boots range sliders and bindings.
+ */
 function setupInputs() {
   // Transport
-  setupSlider('slider-car', 'transport', 'car', 'val-car', v => `${v} km`, updateAll);
-  setupSlider('slider-flights', 'transport', 'flights', 'val-flights', v => v, updateAll);
-  setupSlider('slider-transit', 'transport', 'transit', 'val-transit', v => `${v} days`, updateAll);
-  setupSlider('slider-cycle', 'transport', 'cycle', 'val-cycle', v => `${v} days`, updateAll);
+  setupSlider('slider-car', 'transport', 'car', 'val-car', v => `${v} km`);
+  setupSlider('slider-flights', 'transport', 'flights', 'val-flights', v => v);
+  setupSlider('slider-transit', 'transport', 'transit', 'val-transit', v => `${v} days`);
+  setupSlider('slider-cycle', 'transport', 'cycle', 'val-cycle', v => `${v} days`);
 
   // Home
-  setupSlider('slider-electricity', 'home', 'electricity', 'val-electricity', v => `${v} kWh`, updateAll);
-  setupSlider('slider-gas', 'home', 'gas', 'val-gas', v => `${v} m³`, updateAll);
+  setupSlider('slider-electricity', 'home', 'electricity', 'val-electricity', v => `${v} kWh`);
+  setupSlider('slider-gas', 'home', 'gas', 'val-gas', v => `${v} m³`);
   setupSelect('select-solar', 'home', 'solar', 'val-solar', t => t.split(' ')[0] || 'None');
 
   // Food
   setupSelect('select-diet', 'food', 'diet', 'val-diet', t => t.split(' ')[0]);
-  setupSlider('slider-local', 'food', 'local', 'val-local', v => `${v}%`, updateAll);
+  setupSlider('slider-local', 'food', 'local', 'val-local', v => `${v}%`);
   setupSelect('select-waste', 'food', 'waste', 'val-waste', t => t.split('—')[0].trim());
 
   // Goods
-  setupSlider('slider-clothing', 'goods', 'clothing', 'val-clothing', v => v, updateAll);
-  setupSlider('slider-electronics', 'goods', 'electronics', 'val-electronics', v => v, updateAll);
-  setupSlider('slider-orders', 'goods', 'orders', 'val-orders', v => v, updateAll);
+  setupSlider('slider-clothing', 'goods', 'clothing', 'val-clothing', v => v);
+  setupSlider('slider-electronics', 'goods', 'electronics', 'val-electronics', v => v);
+  setupSlider('slider-orders', 'goods', 'orders', 'val-orders', v => v);
 }
 
 // =============================================
 // TABS
 // =============================================
 
+/**
+ * Boots tabs controls.
+ */
 function setupTabs() {
   const tabs = document.querySelectorAll('.tab-btn');
   const panels = document.querySelectorAll('.tracker-panel');
@@ -758,7 +1090,8 @@ function setupTabs() {
       tab.classList.add('active');
       tab.setAttribute('aria-selected', 'true');
       const targetId = `panel-${tab.dataset.tab}`;
-      document.getElementById(targetId)?.classList.add('active');
+      const targetPanel = document.getElementById(targetId);
+      if (targetPanel) targetPanel.classList.add('active');
     });
   });
 }
@@ -767,9 +1100,14 @@ function setupTabs() {
 // CLIMATE PROJECTION MODAL
 // =============================================
 
+/**
+ * Renders the 50-year forecasting summary.
+ */
 function showClimateModal() {
   const total = state.scores.total;
-  const modal = document.getElementById('modal-overlay');
+  const modal = DOM.modalOverlay;
+  if (!modal) return;
+
   const health = getEarthHealthState(total);
 
   // Dynamic content based on health
@@ -782,8 +1120,7 @@ function showClimateModal() {
       desc2075: 'Stable climate',
       color2050: 'var(--primary)',
       color2075: 'var(--primary)',
-      message: `🎉 <strong>Incredible!</strong> Your footprint of ${total.toFixed(1)}t CO₂/year is well below the Paris 2030 target of 2.0t. 
-      If everyone lived like you, global temperatures would remain stable. You're a genuine climate champion. Keep sharing your lifestyle choices — they inspire others to follow!`,
+      message: `🎉 <strong>Incredible!</strong> Your footprint of ${total.toFixed(1)}t CO₂/year is well below the Paris 2030 target of 2.0t. If everyone lived like you, global temperatures would remain stable. You're a genuine climate champion. Keep sharing your lifestyle choices — they inspire others to follow!`,
     },
     good: {
       emoji: '🌎',
@@ -793,8 +1130,7 @@ function showClimateModal() {
       desc2075: 'Mild impacts',
       color2050: 'var(--primary)',
       color2075: 'var(--sky)',
-      message: `✅ <strong>Great progress!</strong> At ${total.toFixed(1)}t CO₂/year, you're below the global average of 4.7t. 
-      Small reductions — like fewer flights or more plant-based meals — could bring you under the 2030 Paris target. You're on the right track!`,
+      message: `✅ <strong>Great progress!</strong> At ${total.toFixed(1)}t CO₂/year, you're below the global average of 4.7t. Small reductions — like fewer flights or more plant-based meals — could bring you under the 2030 Paris target. You're on the right track!`,
     },
     warning: {
       emoji: '🌏',
@@ -804,9 +1140,7 @@ function showClimateModal() {
       desc2075: 'Serious impacts',
       color2050: 'var(--warning)',
       color2075: 'var(--warning)',
-      message: `⚠️ <strong>Action needed.</strong> Your footprint of ${total.toFixed(1)}t CO₂/year is near the global average. 
-      By 2075, if current trends continue, we'd see increased extreme weather events, coastal flooding, and biodiversity loss. 
-      Switching to a more plant-based diet and reducing car travel could cut your footprint by up to 40%.`,
+      message: `⚠️ <strong>Action needed.</strong> Your footprint of ${total.toFixed(1)}t CO₂/year is near the global average. By 2075, if current trends continue, we'd see increased extreme weather events, coastal flooding, and biodiversity loss. Switching to a more plant-based diet and reducing car travel could cut your footprint by up to 40%.`,
     },
     bad: {
       emoji: '🟠',
@@ -816,9 +1150,7 @@ function showClimateModal() {
       desc2075: 'Crisis level',
       color2050: 'var(--danger)',
       color2075: 'var(--danger)',
-      message: `🔴 <strong>High impact detected.</strong> At ${total.toFixed(1)}t CO₂/year, your footprint is ${(total / GLOBAL_AVG * 100 - 100).toFixed(0)}% above the global average. 
-      At this rate, global temperatures could rise 3°C+ by 2100 — triggering irreversible tipping points: melting ice sheets, ocean acidification, and mass extinction events. 
-      Immediate lifestyle changes could dramatically reduce your impact.`,
+      message: `🔴 <strong>High impact detected.</strong> At ${total.toFixed(1)}t CO₂/year, your footprint is ${(total / GLOBAL_AVG * 100 - 100).toFixed(0)}% above the global average. At this rate, global temperatures could rise 3°C+ by 2100 — triggering irreversible tipping points: melting ice sheets, ocean acidification, and mass extinction events. Immediate lifestyle changes could dramatically reduce your impact.`,
     },
     critical: {
       emoji: '🔴',
@@ -828,59 +1160,75 @@ function showClimateModal() {
       desc2075: 'Catastrophic',
       color2050: '#7f1d1d',
       color2075: '#7f1d1d',
-      message: `🚨 <strong>Critical footprint.</strong> Your current emissions of ${total.toFixed(1)}t CO₂/year are ${Math.round(total / GLOBAL_AVG)}× the global average. 
-      Projections at this trajectory show catastrophic temperature rises by 2075 — severe food and water scarcity, displacement of billions, and collapse of major ecosystems. 
-      Urgent action is possible: transportation and diet changes alone could cut your footprint by over 60%.`,
+      message: `🚨 <strong>Critical footprint.</strong> Your current emissions of ${total.toFixed(1)}t CO₂/year are ${Math.round(total / GLOBAL_AVG)}× the global average. Projections at this trajectory show catastrophic temperature rises by 2075 — severe food and water scarcity, displacement of billions, and collapse of major ecosystems. Urgent action is possible: transportation and diet changes alone could cut your footprint by over 60%.`,
     },
   };
 
   const proj = projections[health] || projections.warning;
 
-  document.getElementById('modal-earth-emoji').textContent = proj.emoji;
-  document.getElementById('modal-2025-temp').style.color = 'var(--primary)';
-  document.getElementById('modal-2050-temp').textContent = proj.temp2050;
-  document.getElementById('modal-2050-temp').style.color = proj.color2050;
-  document.getElementById('modal-2075-temp').textContent = proj.temp2075;
-  document.getElementById('modal-2075-temp').style.color = proj.color2075;
-  document.getElementById('modal-2050-desc').textContent = proj.desc2050;
-  document.getElementById('modal-2075-desc').textContent = proj.desc2075;
-  document.getElementById('modal-message').innerHTML = proj.message;
+  if (DOM.modalEarthEmoji) DOM.modalEarthEmoji.textContent = proj.emoji;
+  if (DOM.modal2025Temp) DOM.modal2025Temp.style.color = 'var(--primary)';
+  if (DOM.modal2050Temp) {
+    DOM.modal2050Temp.textContent = proj.temp2050;
+    DOM.modal2050Temp.style.color = proj.color2050;
+  }
+  if (DOM.modal2075Temp) {
+    DOM.modal2075Temp.textContent = proj.temp2075;
+    DOM.modal2075Temp.style.color = proj.color2075;
+  }
+  if (DOM.modal2050Desc) DOM.modal2050Desc.textContent = proj.desc2050;
+  if (DOM.modal2075Desc) DOM.modal2075Desc.textContent = proj.desc2075;
+  if (DOM.modalMessage) {
+    setSafeMessage(DOM.modalMessage, proj.message);
+  }
 
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
+/**
+ * Closes the modal.
+ */
 function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+  if (DOM.modalOverlay) {
+    DOM.modalOverlay.classList.remove('open');
+  }
   document.body.style.overflow = '';
 }
 
+/**
+ * Configures modal bindings.
+ */
 function setupModal() {
-  // Earth canvas click
-  earthCanvas.addEventListener('click', showClimateModal);
-  earthCanvas.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') showClimateModal(); });
+  if (DOM.earthCanvas) {
+    DOM.earthCanvas.addEventListener('click', showClimateModal);
+    DOM.earthCanvas.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') showClimateModal(); });
+  }
 
-  // Close buttons
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.getElementById('modal-close-btn').addEventListener('click', closeModal);
-  document.getElementById('modal-overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-overlay')) closeModal();
-  });
-
-  // Action button
-  document.getElementById('modal-action-btn').addEventListener('click', () => {
-    closeModal();
-    document.getElementById('panel-transport').classList.add('active');
-    document.querySelectorAll('.tracker-panel').forEach(p => {
-      if (p.id !== 'panel-transport') p.classList.remove('active');
+  if (DOM.modalClose) DOM.modalClose.addEventListener('click', closeModal);
+  if (DOM.modalCloseBtn) DOM.modalCloseBtn.addEventListener('click', closeModal);
+  if (DOM.modalOverlay) {
+    DOM.modalOverlay.addEventListener('click', e => {
+      if (e.target === DOM.modalOverlay) closeModal();
     });
-    document.querySelectorAll('.tab-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === 'transport');
-    });
-    document.querySelector('.tracker-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  }
 
-  // Keyboard close
+  if (DOM.modalActionBtn) {
+    DOM.modalActionBtn.addEventListener('click', () => {
+      closeModal();
+      const panelTrans = document.getElementById('panel-transport');
+      if (panelTrans) panelTrans.classList.add('active');
+      document.querySelectorAll('.tracker-panel').forEach(p => {
+        if (p.id !== 'panel-transport') p.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === 'transport');
+      });
+      const trackerCard = document.querySelector('.tracker-card');
+      if (trackerCard) trackerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeModal();
   });
@@ -890,28 +1238,48 @@ function setupModal() {
 // NAV BUTTONS
 // =============================================
 
+/**
+ * Configures headers and buttons scrolling.
+ */
 function setupNav() {
-  document.getElementById('nav-insights').addEventListener('click', () => {
-    document.getElementById('insights-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  document.getElementById('nav-offset').addEventListener('click', () => {
-    document.getElementById('offset-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  document.getElementById('nav-dashboard').addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-  document.getElementById('hero-calculate-btn').addEventListener('click', () => {
-    document.querySelector('.tracker-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
-  document.getElementById('hero-learn-btn').addEventListener('click', () => {
-    document.getElementById('planet-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  if (DOM.navInsights) {
+    DOM.navInsights.addEventListener('click', () => {
+      const insightsSect = document.getElementById('insights-section');
+      if (insightsSect) insightsSect.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  if (DOM.navOffset) {
+    DOM.navOffset.addEventListener('click', () => {
+      const offsetSect = document.getElementById('offset-section');
+      if (offsetSect) offsetSect.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  if (DOM.navDashboard) {
+    DOM.navDashboard.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  if (DOM.heroCalculateBtn) {
+    DOM.heroCalculateBtn.addEventListener('click', () => {
+      const trackerCard = document.querySelector('.tracker-card');
+      if (trackerCard) trackerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+  if (DOM.heroLearnBtn) {
+    DOM.heroLearnBtn.addEventListener('click', () => {
+      const planetSect = document.getElementById('planet-section');
+      if (planetSect) planetSect.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 }
 
 // =============================================
 // RESIZE HANDLER
 // =============================================
 
+/**
+ * Handles resize adjustments dynamically.
+ */
 function handleResize() {
   initParticleCanvas();
 }
@@ -920,50 +1288,59 @@ function handleResize() {
 // SCROLL ANIMATION (Intersection Observer)
 // =============================================
 
+/**
+ * Triggers fade effects dynamically when scrolled into screen viewports.
+ */
 function setupScrollAnimations() {
-  const cards = document.querySelectorAll('.card, .streak-banner');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.style.opacity = '1';
-        entry.target.style.transform = 'translateY(0)';
-      }
-    });
-  }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+  try {
+    const cards = document.querySelectorAll('.card, .streak-banner');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
 
-  cards.forEach(card => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(24px)';
-    card.style.transition = 'opacity 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    observer.observe(card);
-  });
+    cards.forEach(card => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(24px)';
+      card.style.transition = 'opacity 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      observer.observe(card);
+    });
+  } catch (err) {
+    console.warn('Scroll animations not fully supported in this browser.', err);
+  }
 }
 
 // =============================================
 // DEMO: Pre-fill with sample data
 // =============================================
 
+/**
+ * Fills inputs with default dummy profiles.
+ */
 function loadSampleData() {
-  // Set some sample values to show the UI in action
   const carSlider = document.getElementById('slider-car');
   const flightsSlider = document.getElementById('slider-flights');
   const electricitySlider = document.getElementById('slider-electricity');
   const gasSlider = document.getElementById('slider-gas');
 
-  if (carSlider) { carSlider.value = 250; state.transport.car = 250; document.getElementById('val-car').textContent = '250 km'; }
-  if (flightsSlider) { flightsSlider.value = 3; state.transport.flights = 3; document.getElementById('val-flights').textContent = '3'; }
-  if (electricitySlider) { electricitySlider.value = 450; state.home.electricity = 450; document.getElementById('val-electricity').textContent = '450 kWh'; }
-  if (gasSlider) { gasSlider.value = 80; state.home.gas = 80; document.getElementById('val-gas').textContent = '80 m³'; }
+  if (carSlider) { carSlider.value = 250; state.transport.car = 250; const d = document.getElementById('val-car'); if (d) d.textContent = '250 km'; }
+  if (flightsSlider) { flightsSlider.value = 3; state.transport.flights = 3; const d = document.getElementById('val-flights'); if (d) d.textContent = '3'; }
+  if (electricitySlider) { electricitySlider.value = 450; state.home.electricity = 450; const d = document.getElementById('val-electricity'); if (d) d.textContent = '450 kWh'; }
+  if (gasSlider) { gasSlider.value = 80; state.home.gas = 80; const d = document.getElementById('val-gas'); if (d) d.textContent = '80 m³'; }
 
   const dietSelect = document.getElementById('select-diet');
-  if (dietSelect) { dietSelect.value = '2.5'; state.food.diet = 2.5; document.getElementById('val-diet').textContent = 'Average'; }
+  if (dietSelect) { dietSelect.value = '2.5'; state.food.diet = 2.5; const d = document.getElementById('val-diet'); if (d) d.textContent = 'Average'; }
   const localSlider = document.getElementById('slider-local');
-  if (localSlider) { localSlider.value = 20; state.food.local = 20; document.getElementById('val-local').textContent = '20%'; }
+  if (localSlider) { localSlider.value = 20; state.food.local = 20; const d = document.getElementById('val-local'); if (d) d.textContent = '20%'; }
 
   const clothingSlider = document.getElementById('slider-clothing');
-  if (clothingSlider) { clothingSlider.value = 20; state.goods.clothing = 20; document.getElementById('val-clothing').textContent = '20'; }
+  if (clothingSlider) { clothingSlider.value = 20; state.goods.clothing = 20; const d = document.getElementById('val-clothing'); if (d) d.textContent = '20'; }
   const ordersSlider = document.getElementById('slider-orders');
-  if (ordersSlider) { ordersSlider.value = 8; state.goods.orders = 8; document.getElementById('val-orders').textContent = '8'; }
+  if (ordersSlider) { ordersSlider.value = 8; state.goods.orders = 8; const d = document.getElementById('val-orders'); if (d) d.textContent = '8'; }
 
   updateAll();
 }
@@ -972,31 +1349,56 @@ function loadSampleData() {
 // INIT
 // =============================================
 
+/**
+ * Main application initialization.
+ */
 function init() {
-  // Setup UI interactions
+  cacheDOMElements();
   setupInputs();
   setupTabs();
   setupModal();
   setupNav();
 
-  // Start animations
   initParticleCanvas();
-  animateEarth();
-  animateParticles();
 
-  // Initial render
+  // Setup IntersectionObservers to throttle animations when canvases are offscreen
+  try {
+    const visibilityObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.target === DOM.earthCanvas) {
+          state.earthVisible = entry.isIntersecting;
+          if (state.earthVisible && !isEarthAnimating) {
+            animateEarth();
+          }
+        } else if (entry.target === DOM.particleCanvas) {
+          state.particlesVisible = entry.isIntersecting;
+          if (state.particlesVisible && !isParticlesAnimating) {
+            animateParticles();
+          }
+        }
+      });
+    }, { threshold: 0.1 });
+
+    if (DOM.earthCanvas) visibilityObserver.observe(DOM.earthCanvas);
+    if (DOM.particleCanvas) visibilityObserver.observe(DOM.particleCanvas);
+  } catch (err) {
+    console.warn('Canvas Visibility Observer failed to initialize, running fallback loop.', err);
+    state.earthVisible = true;
+    state.particlesVisible = true;
+    animateEarth();
+    animateParticles();
+  }
+
+  // Initial draw loops if supported
+  if (isEarthAnimating === false && state.earthVisible) animateEarth();
+  if (isParticlesAnimating === false && state.particlesVisible) animateParticles();
+
   updateAll();
-
-  // Streak
   initStreak();
 
-  // Scroll animations
   setTimeout(setupScrollAnimations, 100);
-
-  // Load sample data after short delay for visual effect
   setTimeout(loadSampleData, 600);
 
-  // Resize handler
   window.addEventListener('resize', handleResize);
 
   // Keyboard accessibility for tabs
@@ -1010,7 +1412,20 @@ function init() {
   });
 
   console.log('%c🌿 EcoMirror Loaded', 'color: #00e5a0; font-size: 1.2rem; font-weight: bold;');
-  console.log('%cTrack your carbon footprint and see your Planet Health Mirror!', 'color: #a78bfa;');
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Bind load listener if in browser environment
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', init);
+}
+
+// Node.js module exports for compatibility with automated testing suites
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    state,
+    calculateScores,
+    CO2_FACTORS,
+    BADGES,
+    INSIGHTS_DB
+  };
+}

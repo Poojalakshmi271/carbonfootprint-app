@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self';" />
   <meta name="description" content="Track your personal carbon footprint, visualize your environmental impact, and get AI-powered tips to reduce your CO₂ emissions — all in one beautiful dashboard." />
   <title>EcoMirror — Carbon Footprint Awareness Platform</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
@@ -103,7 +104,7 @@
   </section>
 
   <!-- ===== MAIN GRID ===== -->
-  <div class="main-grid">
+  <main class="main-grid">
 
     <!-- Score Gauge Card -->
     <div class="card score-card animate-in" aria-label="Carbon Score Gauge">
@@ -216,7 +217,7 @@
             <span class="input-value-display" id="val-electricity">0 kWh</span>
           </div>
           <input type="range" id="slider-electricity" min="0" max="2000" value="0" step="50"
-            aria-label="Monthly electricity usage in kWh" />
+            aria-label="Monthly electricity usage in kWh" aria-valuemin="0" aria-valuemax="2000" aria-valuenow="0" />
         </div>
         <div class="input-group">
           <div class="input-label">
@@ -224,7 +225,7 @@
             <span class="input-value-display" id="val-gas">0 m³</span>
           </div>
           <input type="range" id="slider-gas" min="0" max="500" value="0" step="10"
-            aria-label="Monthly gas or heating usage in cubic meters" />
+            aria-label="Monthly gas or heating usage in cubic meters" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0" />
         </div>
         <div class="input-group">
           <div class="input-label">
@@ -261,7 +262,7 @@
             <span class="input-value-display" id="val-local">0%</span>
           </div>
           <input type="range" id="slider-local" min="0" max="100" value="0" step="10"
-            aria-label="Percentage of local or organic food" />
+            aria-label="Percentage of local or organic food" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" />
         </div>
         <div class="input-group">
           <div class="input-label">
@@ -284,7 +285,7 @@
             <span class="input-value-display" id="val-clothing">0</span>
           </div>
           <input type="range" id="slider-clothing" min="0" max="60" value="0" step="2"
-            aria-label="New clothing items per year" />
+            aria-label="New clothing items per year" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0" />
         </div>
         <div class="input-group">
           <div class="input-label">
@@ -292,7 +293,7 @@
             <span class="input-value-display" id="val-electronics">0</span>
           </div>
           <input type="range" id="slider-electronics" min="0" max="10" value="0" step="1"
-            aria-label="New electronics purchases per year" />
+            aria-label="New electronics purchases per year" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" />
         </div>
         <div class="input-group">
           <div class="input-label">
@@ -300,7 +301,7 @@
             <span class="input-value-display" id="val-orders">0</span>
           </div>
           <input type="range" id="slider-orders" min="0" max="50" value="0" step="1"
-            aria-label="Online orders per month" />
+            aria-label="Online orders per month" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0" />
         </div>
       </div>
     </div>
@@ -398,7 +399,7 @@
       </div>
     </div>
 
-  </div><!-- end .main-grid -->
+  </main><!-- end .main-grid -->
 
   <!-- ===== BADGES / GAMIFICATION ===== -->
   <div class="card badges-card animate-in" aria-label="Eco achievements and badges">

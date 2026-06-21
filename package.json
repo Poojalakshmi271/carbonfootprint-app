@@ -1,0 +1,17 @@
+{
+  "name": "carbonfootprint",
+  "version": "1.0.0",
+  "description": "Carbon Footprint Awareness Platform",
+  "main": "app.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "carbon",
+    "footprint",
+    "calculator",
+    "eco"
+  ],
+  "author": "",
+  "license": "ISC"
+}
