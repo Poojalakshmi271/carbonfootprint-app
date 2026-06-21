@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Track your personal carbon footprint, visualize your environmental impact, and get AI-powered tips to reduce your CO₂ emissions — all in one beautiful dashboard." />
+  <title>EcoMirror — Carbon Footprint Awareness Platform</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Animated Background -->
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+</div>
+
+<div id="app">
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <a class="logo" href="#" aria-label="EcoMirror Home">
+      <div class="logo-icon">🌿</div>
+      <div class="logo-text">
+        <span class="logo-title">EcoMirror</span>
+        <span class="logo-sub">Carbon Intelligence Platform</span>
+      </div>
+    </a>
+    <nav aria-label="Primary navigation">
+      <button class="nav-btn active" id="nav-dashboard">Dashboard</button>
+      <button class="nav-btn" id="nav-insights">Insights</button>
+      <button class="nav-btn" id="nav-offset">Offset</button>
+    </nav>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero" aria-label="Hero section">
+    <div class="hero-badge">
+      <span class="dot" aria-hidden="true"></span>
+      Live Environmental Tracking
+    </div>
+    <h1>Your <span class="highlight">Carbon Mirror</span><br/>Reflects Your World</h1>
+    <p>Track your daily footprint across transport, energy, food &amp; lifestyle. Watch your Planet Health Mirror transform as your choices change the future.</p>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn-primary" id="hero-calculate-btn">
+        🔬 Calculate My Footprint
+      </button>
+      <button class="btn-secondary" id="hero-learn-btn">
+        📖 Learn More
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== STREAK BANNER ===== -->
+  <div class="streak-banner animate-in" role="status" aria-live="polite">
+    <div class="streak-flame" aria-hidden="true">🔥</div>
+    <div class="streak-info">
+      <div class="streak-count" id="streak-count">0</div>
+      <div class="streak-label">Day Eco-Streak 🌱 Keep it up!</div>
+    </div>
+    <div class="streak-next" id="streak-next-badge">
+      Next badge in<br/><strong id="streak-days-next">7 days</strong>
+    </div>
+  </div>
+
+  <!-- ===== PLANET HEALTH MIRROR (NOVEL FEATURE) ===== -->
+  <section class="planet-section card animate-in" aria-label="Planet Health Mirror" id="planet-section">
+    <canvas id="particleCanvas" aria-hidden="true"></canvas>
+    <div class="planet-section-title">✨ Novel Feature</div>
+    <h2 class="planet-section-headline">🌍 Planet Health Mirror</h2>
+    <p class="planet-section-sub">Your Earth reacts in real time to your carbon footprint. Click the Earth to see your 50-year climate projection.</p>
+
+    <div class="planet-mirror-wrapper">
+      <div class="earth-wrapper">
+        <canvas id="earthCanvas" width="240" height="240" role="button" tabindex="0"
+          aria-label="Animated Earth - click to see climate projection"
+          title="Click to view your 50-year climate projection"></canvas>
+        <div class="earth-label">Click Earth to Explore Future</div>
+      </div>
+
+      <div class="planet-stats">
+        <div class="planet-stat-item">
+          <div class="planet-stat-label">🌡️ Your Annual CO₂</div>
+          <div class="planet-stat-value" id="planet-co2-val">0.0t</div>
+          <div class="planet-stat-desc">vs. global avg of 4.7t / person</div>
+        </div>
+        <div class="planet-stat-item">
+          <div class="planet-stat-label">🌲 Trees Equivalent</div>
+          <div class="planet-stat-value" id="planet-trees-val">0</div>
+          <div class="planet-stat-desc">trees needed to offset your footprint</div>
+        </div>
+        <div class="planet-stat-item">
+          <div class="planet-stat-label">🏆 Planet Health</div>
+          <div id="health-status-badge" class="health-status-badge health-great">
+            <span id="health-badge-icon">✅</span>
+            <span id="health-badge-text">Excellent</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MAIN GRID ===== -->
+  <div class="main-grid">
+
+    <!-- Score Gauge Card -->
+    <div class="card score-card animate-in" aria-label="Carbon Score Gauge">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon icon-green">📊</div>
+          Your Carbon Score
+        </div>
+      </div>
+
+      <div class="gauge-wrapper" role="img" aria-label="Carbon score gauge">
+        <canvas id="gaugeCanvas" width="220" height="130"></canvas>
+        <div class="gauge-center-text">
+          <div class="gauge-value" id="gauge-value">0.0</div>
+          <div class="gauge-unit">Tonnes CO₂/Year</div>
+        </div>
+      </div>
+      <div class="gauge-label health-great" id="gauge-label">🌿 Excellent</div>
+
+      <div class="score-comparison" aria-label="Score comparison">
+        <div class="comparison-row">
+          <span class="comparison-label">You</span>
+          <div class="comparison-bar-wrapper">
+            <div class="comparison-bar bar-user" id="bar-user" style="width: 0%"></div>
+          </div>
+          <span class="comparison-val" id="cmp-user" style="color: var(--primary);">0t</span>
+        </div>
+        <div class="comparison-row">
+          <span class="comparison-label">Global Avg</span>
+          <div class="comparison-bar-wrapper">
+            <div class="comparison-bar bar-avg" style="width: 47%"></div>
+          </div>
+          <span class="comparison-val" style="color: var(--warning);">4.7t</span>
+        </div>
+        <div class="comparison-row">
+          <span class="comparison-label">2030 Target</span>
+          <div class="comparison-bar-wrapper">
+            <div class="comparison-bar bar-target" style="width: 20%"></div>
+          </div>
+          <span class="comparison-val" style="color: var(--sky);">2.0t</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracker Card -->
+    <div class="card tracker-card animate-in" aria-label="Carbon Footprint Tracker">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon icon-purple">✏️</div>
+          Track Your Impact
+        </div>
+      </div>
+
+      <div class="section-tabs" role="tablist" aria-label="Tracker categories">
+        <button class="tab-btn active" id="tab-transport" role="tab" aria-selected="true" aria-controls="panel-transport" data-tab="transport">
+          <span class="tab-icon">🚗</span>Transport
+        </button>
+        <button class="tab-btn" id="tab-home" role="tab" aria-selected="false" aria-controls="panel-home" data-tab="home">
+          <span class="tab-icon">🏠</span>Home
+        </button>
+        <button class="tab-btn" id="tab-food" role="tab" aria-selected="false" aria-controls="panel-food" data-tab="food">
+          <span class="tab-icon">🍽️</span>Food
+        </button>
+        <button class="tab-btn" id="tab-goods" role="tab" aria-selected="false" aria-controls="panel-goods" data-tab="goods">
+          <span class="tab-icon">🛒</span>Goods
+        </button>
+      </div>
+
+      <!-- Transport Panel -->
+      <div id="panel-transport" class="tracker-panel active" role="tabpanel" aria-labelledby="tab-transport">
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🚗 Car distance per week</span>
+            <span class="input-value-display" id="val-car">0 km</span>
+          </div>
+          <input type="range" id="slider-car" min="0" max="1000" value="0" step="10"
+            aria-label="Car distance per week in kilometers" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">✈️ Short-haul flights per year</span>
+            <span class="input-value-display" id="val-flights">0</span>
+          </div>
+          <input type="range" id="slider-flights" min="0" max="20" value="0" step="1"
+            aria-label="Short-haul flights per year" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🚌 Public transit per week</span>
+            <span class="input-value-display" id="val-transit">0 days</span>
+          </div>
+          <input type="range" id="slider-transit" min="0" max="7" value="0" step="1"
+            aria-label="Public transit days per week" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🚲 Walk / Cycle per week</span>
+            <span class="input-value-display" id="val-cycle">0 days</span>
+          </div>
+          <input type="range" id="slider-cycle" min="0" max="7" value="0" step="1"
+            aria-label="Walking or cycling days per week" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0" />
+        </div>
+      </div>
+
+      <!-- Home Panel -->
+      <div id="panel-home" class="tracker-panel" role="tabpanel" aria-labelledby="tab-home">
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">⚡ Monthly electricity (kWh)</span>
+            <span class="input-value-display" id="val-electricity">0 kWh</span>
+          </div>
+          <input type="range" id="slider-electricity" min="0" max="2000" value="0" step="50"
+            aria-label="Monthly electricity usage in kWh" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🔥 Monthly gas / heating (m³)</span>
+            <span class="input-value-display" id="val-gas">0 m³</span>
+          </div>
+          <input type="range" id="slider-gas" min="0" max="500" value="0" step="10"
+            aria-label="Monthly gas or heating usage in cubic meters" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">☀️ Renewable energy</span>
+            <span class="input-value-display" id="val-solar">None</span>
+          </div>
+          <select id="select-solar" aria-label="Renewable energy usage">
+            <option value="0">None — 100% grid electricity</option>
+            <option value="0.3">Partial solar (≈30% coverage)</option>
+            <option value="0.6">Mostly solar (≈60% coverage)</option>
+            <option value="1">100% renewable / solar</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Food Panel -->
+      <div id="panel-food" class="tracker-panel" role="tabpanel" aria-labelledby="tab-food">
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🥩 Diet type</span>
+            <span class="input-value-display" id="val-diet">Select</span>
+          </div>
+          <select id="select-diet" aria-label="Diet type selection">
+            <option value="3.3">🥩 Heavy meat eater (daily)</option>
+            <option value="2.5">🍗 Average omnivore</option>
+            <option value="1.7">🥗 Low meat / flexitarian</option>
+            <option value="1.0">🌿 Vegetarian</option>
+            <option value="0.5">🌱 Vegan</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🛒 Local / organic food</span>
+            <span class="input-value-display" id="val-local">0%</span>
+          </div>
+          <input type="range" id="slider-local" min="0" max="100" value="0" step="10"
+            aria-label="Percentage of local or organic food" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">🗑️ Food waste level</span>
+            <span class="input-value-display" id="val-waste">Low</span>
+          </div>
+          <select id="select-waste" aria-label="Food waste level">
+            <option value="0.1">Low — minimal waste</option>
+            <option value="0.3">Medium — some waste</option>
+            <option value="0.5">High — frequent waste</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Goods Panel -->
+      <div id="panel-goods" class="tracker-panel" role="tabpanel" aria-labelledby="tab-goods">
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">👕 Clothing items / year</span>
+            <span class="input-value-display" id="val-clothing">0</span>
+          </div>
+          <input type="range" id="slider-clothing" min="0" max="60" value="0" step="2"
+            aria-label="New clothing items per year" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">📱 Electronics / year</span>
+            <span class="input-value-display" id="val-electronics">0</span>
+          </div>
+          <input type="range" id="slider-electronics" min="0" max="10" value="0" step="1"
+            aria-label="New electronics purchases per year" />
+        </div>
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">📦 Online orders / month</span>
+            <span class="input-value-display" id="val-orders">0</span>
+          </div>
+          <input type="range" id="slider-orders" min="0" max="50" value="0" step="1"
+            aria-label="Online orders per month" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Breakdown Chart -->
+    <div class="card breakdown-card animate-in" aria-label="Emissions breakdown by category">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon icon-amber">📈</div>
+          Emissions Breakdown
+        </div>
+      </div>
+      <div class="chart-bars" role="list">
+        <div class="chart-row" role="listitem">
+          <div class="chart-label">🚗 Transport</div>
+          <div class="chart-bar-track" aria-label="Transport emissions bar">
+            <div class="chart-bar-fill bar-transport" id="bar-transport" style="width: 0%"></div>
+          </div>
+          <div class="chart-val" id="val-transport-co2">0.0t</div>
+        </div>
+        <div class="chart-row" role="listitem">
+          <div class="chart-label">🏠 Home Energy</div>
+          <div class="chart-bar-track" aria-label="Home energy emissions bar">
+            <div class="chart-bar-fill bar-home" id="bar-home" style="width: 0%"></div>
+          </div>
+          <div class="chart-val" id="val-home-co2">0.0t</div>
+        </div>
+        <div class="chart-row" role="listitem">
+          <div class="chart-label">🍽️ Food</div>
+          <div class="chart-bar-track" aria-label="Food emissions bar">
+            <div class="chart-bar-fill bar-food" id="bar-food" style="width: 0%"></div>
+          </div>
+          <div class="chart-val" id="val-food-co2">0.0t</div>
+        </div>
+        <div class="chart-row" role="listitem">
+          <div class="chart-label">🛒 Goods</div>
+          <div class="chart-bar-track" aria-label="Goods emissions bar">
+            <div class="chart-bar-fill bar-goods" id="bar-goods" style="width: 0%"></div>
+          </div>
+          <div class="chart-val" id="val-goods-co2">0.0t</div>
+        </div>
+      </div>
+      <div class="chart-global-marker" role="note">
+        ⚠️ Global average: <strong>4.7 tonnes CO₂/year</strong> per person. Paris target: <strong>2.0t by 2030</strong>
+      </div>
+    </div>
+
+    <!-- Actionable Insights Card -->
+    <div class="card insights-card animate-in" id="insights-section" aria-label="Personalized eco insights">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon icon-green">💡</div>
+          Smart Eco Insights
+        </div>
+      </div>
+      <div class="insight-list" id="insight-list" role="list">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+
+    <!-- Offset Calculator -->
+    <div class="card offset-card animate-in" id="offset-section" aria-label="Carbon offset calculator">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-title-icon icon-sky">🌲</div>
+          Offset Calculator
+        </div>
+      </div>
+
+      <div class="offset-visual">
+        <div>
+          <div class="offset-trees-display" id="trees-count" aria-live="polite">0</div>
+          <div class="offset-trees-info">Trees needed<br/>to offset your CO₂</div>
+        </div>
+        <div class="tree-row" id="tree-row" aria-hidden="true"></div>
+      </div>
+
+      <div class="offset-steps">
+        <div class="offset-step">
+          <div class="offset-step-val" id="offset-months">0</div>
+          <div class="offset-step-label">Months to neutral</div>
+        </div>
+        <div class="offset-step">
+          <div class="offset-step-val" id="offset-cost">$0</div>
+          <div class="offset-step-label">Est. offset cost</div>
+        </div>
+        <div class="offset-step">
+          <div class="offset-step-val" id="offset-flights-avoided">0</div>
+          <div class="offset-step-label">Flights to skip</div>
+        </div>
+        <div class="offset-step">
+          <div class="offset-step-val" id="offset-meat-days">0</div>
+          <div class="offset-step-label">Meat-free days</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end .main-grid -->
+
+  <!-- ===== BADGES / GAMIFICATION ===== -->
+  <div class="card badges-card animate-in" aria-label="Eco achievements and badges">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-title-icon icon-purple">🏆</div>
+        Eco Achievements
+      </div>
+    </div>
+    <div class="badges-grid" id="badges-grid" role="list">
+      <!-- Dynamically populated -->
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <p>Built with 💚 for the planet · <span>EcoMirror</span> · Carbon data sourced from IPCC &amp; Our World in Data</p>
+    <p style="margin-top: 8px;">Every small action matters. <span>Start today.</span> 🌱</p>
+  </footer>
+
+</div><!-- end #app -->
+
+<!-- ===== CLIMATE PROJECTION MODAL ===== -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close" aria-label="Close modal">✕</button>
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="font-size: 3rem; margin-bottom: 8px;" id="modal-earth-emoji">🌍</div>
+      <h2 id="modal-title" style="font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;">
+        Your 50-Year Climate Projection
+      </h2>
+      <p id="modal-subtitle" style="font-size: 0.85rem; color: var(--text-secondary); font-family: 'Inter', sans-serif;">
+        Based on your current footprint, here's what your planet could look like.
+      </p>
+    </div>
+
+    <div class="modal-year-row">
+      <div class="modal-year-item">
+        <div class="modal-year">2025</div>
+        <div class="modal-year-temp" id="modal-2025-temp" style="color: var(--primary);">Now</div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;" id="modal-2025-desc">Starting point</div>
+      </div>
+      <div class="modal-year-item">
+        <div class="modal-year">2050</div>
+        <div class="modal-year-temp" id="modal-2050-temp">+1.5°C</div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;" id="modal-2050-desc">Moderate impact</div>
+      </div>
+      <div class="modal-year-item">
+        <div class="modal-year">2075</div>
+        <div class="modal-year-temp" id="modal-2075-temp">+2.1°C</div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;" id="modal-2075-desc">Significant impact</div>
+      </div>
+    </div>
+
+    <div id="modal-message" style="padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7; font-family: 'Inter', sans-serif; margin-bottom: 20px;">
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn-primary" id="modal-action-btn">✅ Take Action Now</button>
+      <button class="btn-secondary" id="modal-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast" role="alert" aria-live="assertive">
+  <span class="toast-icon" id="toast-icon">🏆</span>
+  <span id="toast-msg">Badge unlocked!</span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
