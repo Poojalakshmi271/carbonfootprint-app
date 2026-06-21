@@ -27,8 +27,8 @@
   --sky: #38bdf8;
 
   --text-primary: #f0f4ff;
-  --text-secondary: rgba(240, 244, 255, 0.6);
-  --text-muted: rgba(240, 244, 255, 0.35);
+  --text-secondary: rgba(240, 244, 255, 0.75);
+  --text-muted: rgba(240, 244, 255, 0.6);
 
   --radius-sm: 8px;
   --radius-md: 14px;
